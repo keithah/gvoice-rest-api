@@ -1,0 +1,23 @@
+{
+  "name": "gvoice-nodejs-waa",
+  "version": "1.0.0",
+  "description": "Node.js-based WAA signature generator for Google Voice",
+  "main": "waa_server.js",
+  "scripts": {
+    "start": "node waa_server.js",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "google-voice",
+    "waa",
+    "nodejs",
+    "sms"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^3.3.2",
+    "puppeteer": "^21.11.0"
+  }
+}

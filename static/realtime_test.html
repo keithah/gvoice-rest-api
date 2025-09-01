@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Voice Real-time Messages</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; }
+        .messages { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; margin: 10px 0; }
+        .message { margin: 5px 0; padding: 5px; border-left: 3px solid #007bff; background: #f8f9fa; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .warning { border-left-color: #ffc107; background: #fff3cd; }
+        input, button { padding: 8px; margin: 5px; }
+        .status { font-weight: bold; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Google Voice Real-time Messages</h1>
+        
+        <div class="status">
+            Status: <span id="status">Disconnected</span>
+        </div>
+        
+        <div>
+            <input type="text" id="tokenInput" placeholder="Enter your session token" style="width: 400px;">
+            <button onclick="connect()">Connect</button>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+        
+        <div>
+            <button onclick="sendPing()">Send Ping</button>
+            <button onclick="getStatus()">Get Status</button>
+            <button onclick="clearMessages()">Clear Messages</button>
+        </div>
+        
+        <div id="messages" class="messages"></div>
+    </div>
+
+    <script>
+        let socket = null;
+        const messagesDiv = document.getElementById('messages');
+        const statusSpan = document.getElementById('status');
+        const tokenInput = document.getElementById('tokenInput');
+
+        function updateStatus(status, className = '') {
+            statusSpan.textContent = status;
+            statusSpan.className = className;
+        }
+
+        function addMessage(message, type = 'message') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function connect() {
+            const token = tokenInput.value.trim();
+            if (!token) {
+                alert('Please enter a session token');
+                return;
+            }
+
+            if (socket) {
+                socket.close();
+            }
+
+            const wsUrl = `ws://localhost:8000/api/ws/realtime?token=${encodeURIComponent(token)}`;
+            socket = new WebSocket(wsUrl);
+            
+            updateStatus('Connecting...', 'warning');
+
+            socket.onopen = function(event) {
+                updateStatus('Connected', 'success');
+                addMessage('WebSocket connection established', 'success');
+            };
+
+            socket.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'connected') {
+                        addMessage(`✅ ${data.message}`, 'success');
+                    } else if (data.type === 'message') {
+                        addMessage(`📨 New message: ${JSON.stringify(data.data, null, 2)}`, 'message');
+                    } else if (data.type === 'error') {
+                        addMessage(`❌ Error: ${data.message}`, 'error');
+                    } else if (data.type === 'pong') {
+                        addMessage('🏓 Pong received', 'success');
+                    } else if (data.type === 'status') {
+                        addMessage(`📊 Status - Users: ${data.connected_users}, Connections: ${data.total_connections}`, 'message');
+                    } else {
+                        addMessage(`📥 Received: ${JSON.stringify(data, null, 2)}`, 'message');
+                    }
+                } catch (e) {
+                    addMessage(`Raw message: ${event.data}`, 'message');
+                }
+            };
+
+            socket.onclose = function(event) {
+                updateStatus('Disconnected', 'error');
+                addMessage(`Connection closed: ${event.reason || 'No reason provided'}`, 'error');
+            };
+
+            socket.onerror = function(error) {
+                updateStatus('Error', 'error');
+                addMessage(`WebSocket error: ${error.message || 'Unknown error'}`, 'error');
+            };
+        }
+
+        function disconnect() {
+            if (socket) {
+                socket.close();
+                socket = null;
+            }
+        }
+
+        function sendPing() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'ping' }));
+                addMessage('🏓 Ping sent', 'success');
+            } else {
+                addMessage('❌ Not connected', 'error');
+            }
+        }
+
+        function getStatus() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'status' }));
+            } else {
+                addMessage('❌ Not connected', 'error');
+            }
+        }
+
+        function clearMessages() {
+            messagesDiv.innerHTML = '';
+        }
+
+        // Auto-connect if token is in URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const tokenFromUrl = urlParams.get('token');
+        if (tokenFromUrl) {
+            tokenInput.value = tokenFromUrl;
+            setTimeout(() => connect(), 1000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "gvoice-electron-waa",
+  "version": "1.0.0",
+  "description": "Electron-based WAA signature generator for Google Voice",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox --disable-gpu",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "google-voice",
+    "waa",
+    "electron",
+    "sms"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^37.4.0"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

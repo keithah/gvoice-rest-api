@@ -9,6 +9,8 @@ A Python REST API for Google Voice SMS operations, extracted from the mautrix-gv
 - **Cookie-based Authentication**: Login using browser cookies (no password storage needed)
 - **SMS Operations**: Send SMS, list conversations, get message history
 - **Thread Management**: Delete conversations, mark as read
+- **Real-time Message Receiving**: WebSocket support for live message notifications
+- **Webhook Support**: HTTP webhooks for message events with retry logic
 - **Session Management**: Automatic cleanup of expired sessions
 
 ## Setup
@@ -104,6 +106,65 @@ curl -X GET "http://localhost:8000/api/sms/account" \
   -H "Authorization: Bearer YOUR_SESSION_TOKEN"
 ```
 
+### Real-time Message Receiving
+
+Connect to WebSocket for live message notifications:
+
+**JavaScript Client:**
+```javascript
+const token = "YOUR_SESSION_TOKEN";
+const ws = new WebSocket(`ws://localhost:8000/api/ws/realtime?token=${token}`);
+
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    if (data.type === 'message') {
+        console.log('New message:', data.data);
+    }
+};
+```
+
+**Test Page:**
+Visit `http://localhost:8000/static/realtime_test.html` to test WebSocket connection interactively.
+
+### Webhooks
+
+Configure webhooks to receive HTTP POST notifications for events:
+
+**Create Webhook:**
+```bash
+curl -X POST "http://localhost:8000/api/webhooks" \
+  -H "Authorization: Bearer YOUR_SESSION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-server.com/webhook",
+    "events": ["message.received", "message.sent"],
+    "secret": "your-webhook-secret"
+  }'
+```
+
+**Webhook Events:**
+- `message.received` - Incoming SMS received
+- `message.sent` - SMS successfully sent
+- `message.failed` - SMS send failure
+- `thread.created` - New conversation thread
+- `thread.deleted` - Thread deleted
+- `*` - All events
+
+**Webhook Payload Example:**
+```json
+{
+  "event": "message.received",
+  "timestamp": "2024-01-01T12:00:00Z",
+  "data": {
+    "sender": "+1234567890",
+    "message": "Hello!",
+    "timestamp": "2024-01-01T12:00:00Z"
+  }
+}
+```
+
+**Security:** Webhooks include HMAC signature in `X-Webhook-Signature` header if secret is configured.
+
 ## API Documentation
 
 Interactive API documentation is available at:
@@ -120,9 +181,13 @@ Interactive API documentation is available at:
 ├── users/            # User account data
 │   ├── email_at_domain_com.json
 │   └── ...
-└── gv_sessions/      # Google Voice cookies
-    ├── user_id1.json
-    └── user_id2.json
+├── gv_sessions/      # Google Voice cookies
+│   ├── user_id1.json
+│   └── user_id2.json
+├── webhooks/         # Webhook configurations
+│   └── user_id.json
+└── webhook_deliveries/  # Webhook delivery logs
+    └── 2024-01-01.json
 ```
 
 ## Key Endpoints
@@ -142,6 +207,18 @@ Interactive API documentation is available at:
 - `DELETE /api/sms/threads/{thread_id}` - Delete thread
 - `POST /api/sms/mark-all-read` - Mark all messages as read
 - `GET /api/sms/account` - Get Google Voice account info
+
+### Real-time WebSocket
+- `WS /api/ws/realtime?token=SESSION_TOKEN` - Real-time message notifications
+- `GET /api/ws/realtime/status` - Get WebSocket connection status
+
+### Webhooks
+- `POST /api/webhooks` - Create new webhook
+- `GET /api/webhooks` - List all webhooks
+- `GET /api/webhooks/{id}` - Get webhook details
+- `PATCH /api/webhooks/{id}` - Update webhook
+- `DELETE /api/webhooks/{id}` - Delete webhook
+- `POST /api/webhooks/{id}/test` - Send test event
 
 ## Security Notes
 
@@ -168,8 +245,8 @@ The Google Voice client (`app/services/gvoice_client.py`) replicates the mautrix
 
 - Direct Google login not implemented (use cookie method)
 - Protobuf parsing is simplified (uses JSON approximation)
-- Real-time message receiving not implemented
 - Voice calls not supported (SMS only)
+- Real-time implementation uses long polling (not true streaming)
 
 ## Development
 
